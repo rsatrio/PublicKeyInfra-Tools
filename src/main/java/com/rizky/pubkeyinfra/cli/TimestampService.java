@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
+import java.util.Base64;
 import java.util.concurrent.Callable;
 
 import org.bouncycastle.asn1.ASN1Boolean;
@@ -26,33 +27,43 @@ import picocli.CommandLine.Option;
 @Command(name = "Timestamp",mixinStandardHelpOptions = true,
 description = "Send timestamp request")
 public class TimestampService implements Callable<Integer>{
-    
+
     @Option(names= {"-f","--fileToHash"},
-            description = "File to be hashed",required = true)
+            description = "File to be hashed")
     File fileName;
-    
+
     @Option(names= {"-t","--tsrFile"},
             description = "TSR File Output",required = true)
     File tsrFileName;
-    
-    
+
+
 
     @Option(names= {"-a","--hashAlgo"},
             description = "Hash Algorithm to use (SHA-224/SHA-256/SHA-512)")
     String hashAlgorithm="SHA-256";
-    
+
     @Option(names= {"-u","--url"},
             description = "TSA Server URL")
     String tsaUrl;
 
+    @Option(names= {"-hd","--hashedData"},
+            description = "Hashed Data")
+    String hashedData;
+
     Logger logApp=LoggerFactory.getLogger(TimestampService.class);
-    
+
     public Integer call() throws Exception {
 
         // Get File Hash
-        MessageDigest md=MessageDigest.getInstance(hashAlgorithm);
-        byte[] hashResult=md.digest(
-                Files.readAllBytes(Paths.get(fileName.getAbsolutePath())));
+        byte[] hashResult=null;
+        if(hashedData==null)    {
+            MessageDigest md=MessageDigest.getInstance(hashAlgorithm);
+            hashResult=md.digest(
+                    Files.readAllBytes(Paths.get(fileName.getAbsolutePath())));
+        }
+        else    {
+            hashResult=Base64.getDecoder().decode(hashedData.getBytes());
+        }
         
         AlgorithmIdentifier algoOid=null;
         if(hashAlgorithm.equals("SHA-256")) {
@@ -68,12 +79,12 @@ public class TimestampService implements Callable<Integer>{
             logApp.error("Hash Algorithm is not supported");
             return 10;
         }
-        
+
         MessageImprint mi=new MessageImprint(algoOid, hashResult);
         TimeStampReq req=new TimeStampReq(mi, null, null, ASN1Boolean.TRUE, null);
         byte[] resp=Unirest.post(tsaUrl).contentType("application/timestamp-query")
                 .body(req.getEncoded()).asBytes().getBody();
-        
+
         ASN1StreamParser asn1Sp = new ASN1StreamParser(resp);
         TimeStampResp tspResp = TimeStampResp.getInstance(asn1Sp.readObject());
         TimeStampResponse tsr = new TimeStampResponse(tspResp);
@@ -81,10 +92,10 @@ public class TimestampService implements Callable<Integer>{
                 tsr.getEncoded(), StandardOpenOption.CREATE_NEW);
         TimeStampToken token = tsr.getTimeStampToken();
         logApp.info("TSA at:{}",token.getTimeStampInfo().getGenTime());
-        
+
         return 0;
-        
+
     }
-    
-    
+
+
 }

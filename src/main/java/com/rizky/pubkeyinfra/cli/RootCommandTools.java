@@ -6,13 +6,14 @@ import picocli.CommandLine.Command;
 
 @Command(name = "",mixinStandardHelpOptions = true,
 description = "",
-subcommands = {OcspCheck.class,ConvertCert.class,TimestampService.class})
+subcommands = {OcspCheck.class,ConvertCert.class,
+        TimestampService.class,ReadCRL.class})
 public class RootCommandTools implements Callable<Integer> {
 
     
     public Integer call() throws Exception {
         // TODO Auto-generated method stub
-        System.out.println("use subcommand: OcspCheck or ConvertCert or Timestamp");
+        System.out.println("use subcommand: OcspCheck or ConvertCert or Timestamp or ReadCRL");
         System.exit(0);
         return 0;
     }
